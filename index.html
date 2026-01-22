@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Budget Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>Budget Tracker</h1>
+
+<div class="container">
+  <div class="left-column">
+    <div class="summary-card">
+      <h2>Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-item income-item">
+          <label>Income</label>
+          <span class="amount">₱<span id="income">0</span></span></div>
+        <div class="summary-item expense-item">
+          <label>Expenses</label>
+          <span class="amount">₱<span id="expense">0</span></span></div>
+        <div class="summary-item balance-item">
+          <label>Balance</label>
+          <span class="amount">₱<span id="balance">0</span></span></div>
+      </div>
+    </div>
+
+    <div class="input-section">
+      <h2>Add Transaction</h2>
+      <div class="form">
+        <select id="type" onchange="updateCategoryOptions()">
+          <option value="Income">Income</option>
+          <option value="Expense">Expense</option>
+        </select>
+        <select id="category"></select>
+        <input type="number" id="amount" placeholder="Amount">
+        <button onclick="saveTransaction()">Add Transaction</button>
+        <button onclick="cancelEdit()" id="cancelBtn" style="display:none;">Cancel</button>
+      </div>
+    </div>
+
+    <button onclick="toggleCategories()" id="categoryToggle">Manage Categories</button>
+
+    <div id="categoryContainer" style="display:none;">
+      <div class="category-section">
+        <h2>Add Category</h2>
+        <div class="form">
+          <input type="text" id="newCategory" placeholder="New category">
+          <button onclick="addCategory()">Add Category</button>
+        </div>
+      </div>
+
+      <div class="category-section">
+        <h2>Delete Category</h2>
+        <div class="form">
+          <select id="categoryToDelete"></select>
+          <button onclick="deleteCategory()">Delete Category</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="logoutBtn">Logout</button>
+  </div>
+
+  <div class="right-column">
+    <div class="history-section">
+      <h2>History</h2>
+      <h3>Income</h3>
+      <ul id="incomeList"></ul>
+      <h3>Expenses</h3>
+      <ul id="expenseList"></ul>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="script.js"></script>
+</body>
+</html>
