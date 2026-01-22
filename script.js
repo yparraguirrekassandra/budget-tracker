@@ -40,26 +40,27 @@ if (loginBtn) {
     } catch (err) { alert(err.message); }
   };
 
-  registerBtn.onclick = async () => {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      await addDoc(collection(db, "users"), {
-        uid: userCredential.user.uid,
-        email: email,
-        createdDate: new Date(),
-        name: email.split('@')[0]  
-      });
-      
-      window.location.href = "index.html";
-    } catch (err) { alert(err.message); }
-  };
+registerBtn.onclick = async () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  try {
 
-  onAuthStateChanged(auth, user => {
-    if (user) window.location.href = "index.html";
-  });
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    await addDoc(collection(db, "users"), {
+      uid: user.uid,
+      email: email,
+      createdDate: new Date(),
+      name: email.split('@')[0]  
+    });
+
+    window.location.href = "index.html";
+    
+    } catch (err) { 
+      alert(err.message); 
+    }
+  };
 }
 
 if (logoutBtn) { 
