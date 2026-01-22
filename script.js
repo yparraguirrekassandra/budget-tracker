@@ -17,15 +17,24 @@ import {
   updateDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-if (document.getElementById("logoutBtn")) {
-  onAuthStateChanged(auth, (user) => {
-    if (!user) {
+// authentication
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    if (document.getElementById("type")) { 
+      initializeDefaultCategories().then(() => {
+        loadCategoriesFromFirebase().then(() => {
+          updateCategoryOptions();
+          loadTransactions();
+        });
+      });
+    }
+  } else {
+    if (document.getElementById("logoutBtn")) {
       window.location.href = "login.html";
     }
-  });
-}
+  }
+});
 
-//authenitcation
 const loginBtn = document.getElementById("loginBtn");
 const registerBtn = document.getElementById("registerBtn");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -46,6 +55,7 @@ if (loginBtn) {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
+      // Table 1: Users - Creating the parent document
       await addDoc(collection(db, "users"), {
         uid: userCredential.user.uid,
         email: email,
@@ -56,10 +66,6 @@ if (loginBtn) {
       window.location.href = "index.html";
     } catch (err) { alert(err.message); }
   };
-
-  onAuthStateChanged(auth, user => {
-    if (user) window.location.href = "index.html";
-  });
 }
 
 if (logoutBtn) { 
@@ -69,7 +75,7 @@ if (logoutBtn) {
   };
 }
 
-//budget tracker
+// budget tracker 
 let incomeCategories = [];
 let expenseCategories = [];
 let editingDocId = null;
@@ -81,158 +87,84 @@ window.deleteCategory = deleteCategory;
 window.cancelEdit = cancelEdit;
 window.toggleCategories = toggleCategories;
 
-onAuthStateChanged(auth, async (user) => {
-  if (document.getElementById("type")) { 
-    if (user) {
-      await initializeDefaultCategories();
-      await loadCategoriesFromFirebase();
-      updateCategoryOptions();
-      loadTransactions();
+async function initializeDefaultCategories() {
+  const userPath = `users/${auth.currentUser.uid}/categories`; 
+  const snapshot = await getDocs(collection(db, userPath));
+  
+  if (snapshot.empty) {
+    const defaults = [
+      { name: 'Work', type: 'Income' }, { name: 'Allowance', type: 'Income' },
+      { name: 'Food', type: 'Expense' }, { name: 'Rent', type: 'Expense' }
+    ];
+    for (const cat of defaults) {
+      await addDoc(collection(db, userPath), { categoryName: cat.name, type: cat.type });
     }
   }
-
-  if (user) {
-    const userSnapshot = await getDocs(
-      query(collection(db, "users"), where("uid", "==", user.uid))
-    );
-    
-    userSnapshot.forEach(doc => {
-      const userData = doc.data();
-      console.log("Welcome back, " + userData.name);
-    });
-  }
-});
-
-function populateCategorySelect(selectId, categories) {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  select.innerHTML = "";
-  categories.forEach(cat => {
-    const option = document.createElement("option");
-    option.value = cat;
-    option.textContent = cat;
-    select.appendChild(option);
-  });
 }
 
 async function loadCategoriesFromFirebase() {
-  try {
-    const snapshot = await getDocs(
-      query(collection(db, "categories"), where("uid", "==", auth.currentUser.uid))
-    );
-    
-    incomeCategories = [];
-    expenseCategories = [];
-    
-    snapshot.forEach(docSnap => {
-      const cat = docSnap.data();
-      if (cat.type === "Income") {
-        incomeCategories.push(cat.categoryName);
-      } else {
-        expenseCategories.push(cat.categoryName);
-      }
-    });
-  } catch (err) {
-    console.log("Error loading categories:", err);
-  }
-}
-
-async function initializeDefaultCategories() {
-  const defaultIncomeCategories = ['Work', 'Allowance', 'Freelance', 'Other'];
-  const defaultExpenseCategories = ['Food', 'Transportation', 'Rent', 'Tuition', 'Savings', 'Entertainment', 'Utilities', 'Other'];
-  
-  const snapshot = await getDocs(
-    query(collection(db, "categories"), where("uid", "==", auth.currentUser.uid))
-  );
-  
-  if (snapshot.empty) {
-    for (const cat of defaultIncomeCategories) {
-      await addDoc(collection(db, "categories"), {
-        uid: auth.currentUser.uid,
-        categoryName: cat,
-        type: "Income"
-      });
-    }
-    
-    for (const cat of defaultExpenseCategories) {
-      await addDoc(collection(db, "categories"), {
-        uid: auth.currentUser.uid,
-        categoryName: cat,
-        type: "Expense"
-      });
-    }
-  }
+  const snapshot = await getDocs(collection(db, `users/${auth.currentUser.uid}/categories`));
+  incomeCategories = [];
+  expenseCategories = [];
+  snapshot.forEach(docSnap => {
+    const cat = docSnap.data();
+    if (cat.type === "Income") incomeCategories.push(cat.categoryName);
+    else expenseCategories.push(cat.categoryName);
+  });
 }
 
 function updateCategoryOptions() {
   const type = document.getElementById("type").value;
   const categories = type === "Income" ? incomeCategories : expenseCategories;
-  populateCategorySelect("category", categories);
-  populateCategorySelect("categoryToDelete", categories);
+  populateSelect("category", categories);
+  populateSelect("categoryToDelete", categories);
 }
 
-function addCategory() {
-  const newCategory = document.getElementById("newCategory").value.trim();
+function populateSelect(id, items) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = items.map(i => `<option value="${i}">${i}</option>`).join("");
+}
+
+async function addCategory() {
+  const name = document.getElementById("newCategory").value.trim();
   const type = document.getElementById("type").value;
-  if (!newCategory) return alert("Enter a category name");
+  if (!name) return;
   
-  const categories = type === "Income" ? incomeCategories : expenseCategories;
-  if (categories.includes(newCategory)) return alert("Category already exists");
-  
-  addDoc(collection(db, "categories"), {
-    uid: auth.currentUser.uid,
-    categoryName: newCategory,
-    type: type
+  await addDoc(collection(db, `users/${auth.currentUser.uid}/categories`), {
+    categoryName: name, type: type
   });
-  
   document.getElementById("newCategory").value = "";
-  loadCategoriesFromFirebase().then(() => updateCategoryOptions());
+  await loadCategoriesFromFirebase();
+  updateCategoryOptions();
 }
 
-function deleteCategory() {
-  const categoryToDelete = document.getElementById("categoryToDelete").value;
+async function deleteCategory() {
+  const name = document.getElementById("categoryToDelete").value;
   const type = document.getElementById("type").value;
-  if (!categoryToDelete) return alert("Select a category to delete");
-  
-  (async () => {
-    try {
-      const snapshot = await getDocs(
-        query(
-          collection(db, "categories"),
-          where("uid", "==", auth.currentUser.uid),
-          where("categoryName", "==", categoryToDelete),
-          where("type", "==", type)
-        )
-      );
-      
-      snapshot.forEach(docSnap => {
-        deleteDoc(docSnap.ref);
-      });
-      
-      loadCategoriesFromFirebase().then(() => updateCategoryOptions());
-    } catch (err) {
-      console.log("Error deleting category:", err);
-    }
-  })();
+  const snapshot = await getDocs(query(
+    collection(db, `users/${auth.currentUser.uid}/categories`), 
+    where("categoryName", "==", name), 
+    where("type", "==", type)
+  ));
+  snapshot.forEach(d => deleteDoc(d.ref));
+  await loadCategoriesFromFirebase();
+  updateCategoryOptions();
 }
 
 async function saveTransaction() {
   const type = document.getElementById("type").value;
   const category = document.getElementById("category").value;
   const amount = Number(document.getElementById("amount").value);
-  
-  if (isNaN(amount) || amount <= 0) return alert("Enter a valid amount");
+  if (amount <= 0) return;
 
+  const path = `users/${auth.currentUser.uid}/transactions`; 
+  
   if (editingDocId) {
-    await updateDoc(doc(db, "transactions", editingDocId), {
-      type, category, amount
-    });
+    await updateDoc(doc(db, path, editingDocId), { type, category, amount });
     editingDocId = null;
   } else {
-    await addDoc(collection(db, "transactions"), {
-      uid: auth.currentUser.uid,
-      type, category, amount
-    });
+    await addDoc(collection(db, path), { type, category, amount, date: new Date() });
   }
 
   document.getElementById("amount").value = "";
@@ -241,53 +173,36 @@ async function saveTransaction() {
 }
 
 async function loadTransactions() {
-  const incomeList = document.getElementById("incomeList");
-  const expenseList = document.getElementById("expenseList");
-  incomeList.innerHTML = "";
-  expenseList.innerHTML = "";
+  const snapshot = await getDocs(collection(db, `users/${auth.currentUser.uid}/transactions`));
+  const lists = { Income: document.getElementById("incomeList"), Expense: document.getElementById("expenseList") };
+  lists.Income.innerHTML = ""; lists.Expense.innerHTML = "";
+  let totals = { Income: 0, Expense: 0 };
 
-  let income = 0, expense = 0;
-
-  const snapshot = await getDocs(
-    query(collection(db, "transactions"), where("uid","==",auth.currentUser.uid))
-  );
-  
   snapshot.forEach(docSnap => {
     const t = docSnap.data();
-    const docId = docSnap.id;
     const li = document.createElement("li");
-    li.textContent = `${t.category} - ₱${t.amount}`;
-    li.style.cursor = "pointer";
-    li.onclick = () => editTransaction(docId, t.type, t.category, t.amount);
-
-    const deleteBtn = document.createElement("button");
-    deleteBtn.textContent = "X";
-    deleteBtn.onclick = (e) => {
-      e.stopPropagation();
-      deleteTransaction(docId);
-    };
-    li.appendChild(deleteBtn);
-
-    if (t.type === "Income") {
-      income += t.amount;
-      incomeList.appendChild(li);
-    } else {
-      expense += t.amount;
-      expenseList.appendChild(li);
-    }
+    li.innerHTML = `${t.category} - ₱${t.amount} <button onclick="event.stopPropagation(); deleteTransaction('${docSnap.id}')">X</button>`;
+    li.onclick = () => editTransaction(docSnap.id, t.type, t.category, t.amount);
+    lists[t.type].appendChild(li);
+    totals[t.type] += t.amount;
   });
 
-  document.getElementById("income").textContent = income;
-  document.getElementById("expense").textContent = expense;
-  document.getElementById("balance").textContent = income - expense;
+  document.getElementById("income").textContent = totals.Income;
+  document.getElementById("expense").textContent = totals.Expense;
+  document.getElementById("balance").textContent = totals.Income - totals.Expense;
 }
 
-function editTransaction(docId, type, category, amount) {
-  editingDocId = docId;
+window.deleteTransaction = async (id) => {
+  await deleteDoc(doc(db, `users/${auth.currentUser.uid}/transactions`, id));
+  loadTransactions();
+};
+
+function editTransaction(id, type, cat, amt) {
+  editingDocId = id;
   document.getElementById("type").value = type;
   updateCategoryOptions();
-  document.getElementById("category").value = category;
-  document.getElementById("amount").value = amount;
+  document.getElementById("category").value = cat;
+  document.getElementById("amount").value = amt;
   document.getElementById("cancelBtn").style.display = "inline-block";
 }
 
@@ -298,11 +213,6 @@ function cancelEdit() {
 }
 
 function toggleCategories() {
-  const container = document.getElementById("categoryContainer");
-  container.style.display = container.style.display === "none" ? "block" : "none";
-}
-
-async function deleteTransaction(docId) {
-  await deleteDoc(doc(db, "transactions", docId));
-  loadTransactions();
+  const c = document.getElementById("categoryContainer");
+  c.style.display = c.style.display === "none" ? "block" : "none";
 }
