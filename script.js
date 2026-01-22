@@ -94,7 +94,8 @@ async function initializeDefaultCategories() {
   if (snapshot.empty) {
     const defaults = [
       { name: 'Work', type: 'Income' }, { name: 'Allowance', type: 'Income' },
-      { name: 'Food', type: 'Expense' }, { name: 'Rent', type: 'Expense' }
+      { name: 'Food', type: 'Expense' }, { name: 'Rent', type: 'Expense' },
+      { name: 'Transport', type: 'Expense' }, { name: 'Entertainment', type: 'Expense' }
     ];
     for (const cat of defaults) {
       await addDoc(collection(db, userPath), { categoryName: cat.name, type: cat.type });
