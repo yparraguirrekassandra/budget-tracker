@@ -44,7 +44,15 @@ if (loginBtn) {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      await addDoc(collection(db, "users"), {
+        uid: userCredential.user.uid,
+        email: email,
+        createdDate: new Date(),
+        name: email.split('@')[0]  
+      });
+      
       window.location.href = "index.html";
     } catch (err) { alert(err.message); }
   };
@@ -81,6 +89,17 @@ onAuthStateChanged(auth, async (user) => {
       updateCategoryOptions();
       loadTransactions();
     }
+  }
+
+  if (user) {
+    const userSnapshot = await getDocs(
+      query(collection(db, "users"), where("uid", "==", user.uid))
+    );
+    
+    userSnapshot.forEach(doc => {
+      const userData = doc.data();
+      console.log("Welcome back, " + userData.name);
+    });
   }
 });
 
